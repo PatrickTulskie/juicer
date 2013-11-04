@@ -62,10 +62,26 @@ module Juicer
       #
       def latest
         return @latest if @latest
-        webpage = Nokogiri::HTML(open(@website, :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE).read)
+        if RUBY_VERSION < "1.9.1"
+          webpage = disable_peer_verification { Nokogiri::HTML(open(@website).read) }
+        else
+          webpage = Nokogiri::HTML(open(@website, :ssl_verify_mode => OpenSSL::SSL::VERIFY_NONE).read)
+        end
+        
         a = webpage.css('#manual_downloads h4 a').first
         @href = a['href']
         @latest = a.text.match(/\d\.\d\.\d/)[0]
+      end
+      
+      private
+      
+      def disable_peer_verification
+        old_mode = OpenSSL::SSL::VERIFY_PEER
+        OpenSSL::SSL.const_set(:VERIFY_PEER, OpenSSL::SSL::VERIFY_NONE)
+        result = yield
+        OpenSSL::SSL.const_set(:VERIFY_PEER, old_mode)
+        
+        return result
       end
     end
   end
